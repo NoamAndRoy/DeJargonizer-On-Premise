@@ -75,8 +75,8 @@ namespace DeJargonizerOnPremise
             foreach (var result in results)
             {
                 csvResults.AppendLine(
-                    $"{filesListBox.Items[i++]},{result.AllWords.Count}, {result.RareWords.Count}, {result.NormalWords.Count}, " +
-                    $"{result.RareWords.Aggregate((s1, s2) => $"{s1} , {s2}")} ");
+                    $"{GetFileName(filesListBox.Items[i++]!.ToString())},{result.AllWords.Count}, {result.RareWords.Count}, {result.NormalWords.Count}, " +
+                    $"{(result.RareWords.Count > 0 ? result.RareWords.Aggregate((s1, s2) => $"{s1} , {s2}") : string.Empty)} ");
 
                 foreach (var rareWord in result.RareWords.Select(rareWord => rareWord.ToLower()))
                 {
@@ -144,29 +144,39 @@ namespace DeJargonizerOnPremise
             {
                 var text = filePath switch
                 {
-                    _ when filePath.EndsWith("docx") => DocX.Load(filePath).ParagraphsDeepSearch.Select(p => p.Text).Aggregate((p1, p2) => $"{p1} {p2}"),
+                    _ when filePath.EndsWith("docx") => DocX.Load(filePath).Text,
                     _ => new StreamReader(filePath).ReadToEnd()
                 };
 
                 var tokens = lexer.GetTokens(text);
 
-                var words = tokens.Select(t => t.Value.ToString());
-                words = MergeDashedWords(words, out IEnumerable<string> articleDashedWords);
+                var words = tokens.Select(t => t.Value.ToString()).ToList();
+                MergeDashedWords(words, out IEnumerable<string> articleDashedWords);
 
                 dashedWords = dashedWords.Concat(articleDashedWords);
 
                 results.Add(deJargonizer.Analyze(words));
             }
 
+            dashedWords.Distinct();
+
             return results;
         }
 
-        private IEnumerable<string> MergeDashedWords(IEnumerable<string> words, out IEnumerable<string> dashedWords)
+        private void MergeDashedWords(List<string> words, out IEnumerable<string> dashedWords)
         {
-            dashedWords = words.Where(w => w.Contains('-') && w != "-").Distinct();
-            var nonDashedWords = words.Except(dashedWords);
+            dashedWords = new List<string>();
 
-            return nonDashedWords.Concat(dashedWords.Select(w => string.Join(string.Empty, w.Split('-'))));
+            var dashedWordsIndexes =
+                Enumerable.Range(0, words.Count).Where(i => words[i].Contains('-') && words[i] != "-");
+
+            foreach(var index in dashedWordsIndexes)
+            {
+                ((List<string>)dashedWords).Add(words[index]);
+                words[index] = string.Join(string.Empty, words[index].Split('-'));
+            }
+
+            dashedWords.Distinct();
         }
 
         private void setAmountOfFiles(int amount)
@@ -177,6 +187,13 @@ namespace DeJargonizerOnPremise
             {
                 amountOfFilesLbl.Left = Width - amountOfFilesLbl.Width;
             }
+        }
+
+
+        private string GetFileName(string filePath)
+        {
+            var fileName = Path.GetFileNameWithoutExtension(filePath).TrimEnd('n');
+            return fileName.Substring(fileName.IndexOf(' ') + 1);
         }
     }
 }
