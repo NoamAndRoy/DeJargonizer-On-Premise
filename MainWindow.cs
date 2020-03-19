@@ -69,6 +69,7 @@ namespace DeJargonizerOnPremise
             var csvResults = new StringBuilder();
             csvResults.AppendLine("File Name, Words ,Rare Words, Mid-Frequency Words, Rare Words List");
             var rareWordsCount = new Dictionary<string, int>();
+            var rareWordsUniqueCount = new Dictionary<string, int>();
 
             var i = 0;
 
@@ -89,17 +90,20 @@ namespace DeJargonizerOnPremise
                         rareWordsCount[rareWord] = 1;
                     }
                 }
+            }
 
-                progressBar.PerformStep();
+            foreach (var rareWord in rareWordsCount.Keys)
+            {
+                rareWordsUniqueCount[rareWord] = results.Count(r => r.RareWords.Select(w => w.ToLower()).Contains(rareWord));
             }
 
             var csvRareWords = new StringBuilder();
-            csvRareWords.AppendLine("Rare word, Amount");
+            csvRareWords.AppendLine("Rare word, Amount, Unique article appearances");
 
 
             foreach (var (key, value) in rareWordsCount.ToList().OrderByDescending(k => k.Value))
             {
-                csvRareWords.AppendLine($"{key}, {value}");
+                csvRareWords.AppendLine($"{key}, {value}, {rareWordsUniqueCount[key]}");
             }
 
             var csvDashedWords = new StringBuilder();
@@ -135,7 +139,7 @@ namespace DeJargonizerOnPremise
             progressBar.Visible = false;
         }
 
-        private IEnumerable<DeJargonizerResult> AnalyzeArticles(IEnumerable<string> filePaths, out IEnumerable<string> dashedWords)
+        private List<DeJargonizerResult> AnalyzeArticles(IEnumerable<string> filePaths, out IEnumerable<string> dashedWords)
         {
             dashedWords = new List<string>();
             var results = new List<DeJargonizerResult>();
@@ -156,6 +160,8 @@ namespace DeJargonizerOnPremise
                 dashedWords = dashedWords.Concat(articleDashedWords);
 
                 results.Add(deJargonizer.Analyze(words));
+
+                progressBar.PerformStep();
             }
 
             dashedWords.Distinct();
